@@ -15,6 +15,11 @@ from django.core.cache import cache
 from django.http import HttpResponse
 from rest_framework.permissions import AllowAny
 
+import logging
+
+from django.core.mail import EmailMultiAlternatives
+from django.template.loader import render_to_string
+
 from application.models import Application
 from .permissions import IsAdminOrSuperUser
 
@@ -38,6 +43,7 @@ from .utils import (
 )
 from .permissions import IsSuperUser, IsAdminOrSuperUser
 
+logger = logging.getLogger(__name__)
 User = get_user_model()
 
 
@@ -257,12 +263,53 @@ class AdminCreateView(generics.CreateAPIView):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+
+        # capture plaintext password from validated data so we can email it.
+        # NOTE: Do not log this value.
+        raw_password = serializer.validated_data.get("password")
+
+        # Save the user (serializer should call create_admin and set password)
         user = serializer.save()
-        
+
+        # Prepare email content
+        subject = "Your admin account for Star Light Path"
+        from_email = getattr(settings, "DEFAULT_FROM_EMAIL", None) or getattr(settings, "SERVER_EMAIL", None) or None
+        to_email = [user.email]
+
+        text_body = (
+            f"Hello {user.get_full_name() or user.email},\n\n"
+            "An admin account has been created for you at Star Light Path.\n\n"
+            f"Login email: {user.email}\n"
+            f"Password: {raw_password}\n\n"
+            "Please sign in and change your password if you wish.\n\n"
+            "— Star Light Path System"
+        )
+
+        # Optional: render an HTML template if you have templates/emails/new_admin.html
+        try:
+            html_body = render_to_string("emails/new_admin.html", {
+                "full_name": user.get_full_name() or user.email,
+                "email": user.email,
+                "password": raw_password,
+            })
+        except Exception:
+            html_body = None
+
+        # Send email (don't fail the API if mail fails; just log)
+        try:
+            msg = EmailMultiAlternatives(subject, text_body, from_email, to_email)
+            if html_body:
+                msg.attach_alternative(html_body, "text/html")
+            msg.send(fail_silently=False)
+            logger.info("Sent new-admin credentials email to %s", user.email)
+        except Exception as e:
+            # Log exception but proceed — creation already completed
+            logger.exception("Failed to send admin-credentials email to %s: %s", user.email, e)
+
         return Response(
             {
-                'message': 'Admin user created successfully',
-                'user': UserSerializer(user, context={'request': request}).data
+                "message": "Admin user created successfully",
+                "user": UserSerializer(user, context={"request": request}).data
             },
             status=status.HTTP_201_CREATED
         )
