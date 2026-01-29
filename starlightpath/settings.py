@@ -210,6 +210,10 @@ CORS_ALLOWED_ORIGINS = env_list(
     ]
 )
 
+CSRF_COOKIE_SECURE = True       # True in production (requires HTTPS)
+CSRF_COOKIE_SAMESITE = "Lax"    # or "None" if cross-site (then Secure=True required)
+SESSION_COOKIE_SECURE = True    # True in production (requires HTTPS)
+
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework_simplejwt.authentication.JWTAuthentication',
@@ -225,6 +229,8 @@ SIMPLE_JWT = {
     'REFRESH_TOKEN_LIFETIME': timedelta(days=env_int(os.getenv("SIMPLE_JWT_REFRESH_TOKEN_DAYS"), 7)),
     'ROTATE_REFRESH_TOKENS': env_bool(os.getenv("SIMPLE_JWT_ROTATE_REFRESH_TOKENS"), True),
     'BLACKLIST_AFTER_ROTATION': env_bool(os.getenv("SIMPLE_JWT_BLACKLIST_AFTER_ROTATION"), True),
+    'REFRESH_COOKIE_NAME': "refresh_token",
+    'REFRESH_COOKIE_PATH': "/api/auth"
 }
 
 SPECTACULAR_SETTINGS = {
