@@ -14,7 +14,9 @@ from .views import (
     ForgotPasswordView,
     ResetPasswordView,
     VerifyOTPView,
-    RefreshTokenView
+    RefreshTokenView,
+    DashboardSummaryView,
+    DashboardMonthlyApplicationsView,
 )
 
 app_name = 'user'
@@ -42,6 +44,9 @@ urlpatterns = [
     path('password/forgot/', ForgotPasswordView.as_view(), name='password-forgot'),
     path('password/verify/', VerifyOTPView.as_view(), name='password-verify'),
     path('password/reset/', ResetPasswordView.as_view(), name='password-reset'),
+
+    path('dashboard/summary/', DashboardSummaryView.as_view(), name='dashboard-summary'),
+    path('dashboard/applications/monthly/', DashboardMonthlyApplicationsView.as_view(), name='dashboard-monthly-apps'),
 
     # JWT auth paths
     # path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),

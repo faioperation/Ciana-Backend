@@ -1,4 +1,8 @@
-from datetime import timedelta
+from datetime import timedelta, date
+from django.db.models import Count
+from django.utils import timezone
+from django.db.models.functions import TruncMonth
+from calendar import month_name
 from rest_framework import status, generics
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -10,6 +14,9 @@ from django.conf import settings
 from django.core.cache import cache
 from django.http import HttpResponse
 from rest_framework.permissions import AllowAny
+
+from application.models import Application
+from .permissions import IsAdminOrSuperUser
 
 from .serializers import (
     UserSerializer,
@@ -528,4 +535,94 @@ class ResetPasswordView(APIView):
         # optional: blacklist outstanding tokens / force logout (advanced)
         return Response({"detail": "Password reset successful. Please log in with your new password."},
                         status=status.HTTP_200_OK)
-    
+
+
+
+# Dashboard summary view
+class DashboardSummaryView(APIView):
+    permission_classes = [IsAuthenticated, IsAdminOrSuperUser]
+
+    def get(self, request):
+        users_count = User.objects.count()
+        total_applications_count = Application.objects.count()
+        total_refer_count = Application.objects.filter(application_type=Application.ApplicationType.REFER).count()
+        total_without_refer_count = Application.objects.exclude(application_type=Application.ApplicationType.REFER).count()
+
+        today = timezone.localdate()
+        today_application_count = Application.objects.filter(created_at__date=today).count()
+
+        return Response({
+            "users_count": users_count,
+            "total_applications_count": total_applications_count,
+            "total_refer_count": total_refer_count,
+            "total_without_refer_count": total_without_refer_count,
+            "today_application_count": today_application_count,
+        })
+
+
+# Helper: build list of (year, month) tuples for the last N months (oldest -> newest)
+def _get_last_n_months(n, end_date=None):
+    end = end_date or timezone.now().date()
+    year = end.year
+    month = end.month
+    months = []
+    # produce months oldest -> newest
+    for i in range(n - 1, -1, -1):
+        m = month - i
+        y = year
+        while m <= 0:
+            m += 12
+            y -= 1
+        months.append((y, m))
+    return months
+
+
+# Monthly applications series for bar chart
+class DashboardMonthlyApplicationsView(APIView):
+    permission_classes = [IsAuthenticated, IsAdminOrSuperUser]
+
+    def get(self, request):
+        # number of months to return (default 6)
+        try:
+            months = int(request.query_params.get("months", 6))
+        except ValueError:
+            months = 6
+        months = max(1, min(24, months))  # constrain for safety
+
+        # compute month buckets and start_date
+        last_months = _get_last_n_months(months)
+        first_year, first_month = last_months[0]
+        start_date = date(first_year, first_month, 1)
+
+        # aggregate counts grouped by month
+        qs = (
+            Application.objects
+            .filter(created_at__date__gte=start_date)
+            .annotate(month=TruncMonth('created_at'))
+            .values('month')
+            .annotate(count=Count('id'))
+            .order_by('month')
+        )
+
+        # map TruncMonth results to 'YYYY-MM' keys
+        counts_map = {}
+        for r in qs:
+            # r['month'] is datetime like 2026-01-01 00:00:00+00:00
+            key = r['month'].date().strftime("%Y-%m")
+            counts_map[key] = r['count']
+
+        labels = []
+        data = []
+        for y, m in last_months:
+            key = f"{y}-{m:02d}"
+            labels.append(f"{month_name[m]} {y}")  # "Jan 2026"
+            data.append(counts_map.get(key, 0))
+
+        # optional: also send raw mapping if frontend wants iso keys
+        iso_keys = [f"{y}-{m:02d}" for y, m in last_months]
+
+        return Response({
+            "labels": labels,
+            "data": data,
+            "iso_keys": iso_keys,
+        })
