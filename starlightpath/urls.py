@@ -41,3 +41,8 @@ urlpatterns = [
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+
+admin.site.site_header = "Super Admin Portal"
+admin.site.site_title = "Star Light Path Admin Portal"
+admin.site.index_title = "Welcome to Star Light Path Admin Portal"
