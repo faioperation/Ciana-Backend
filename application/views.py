@@ -124,6 +124,7 @@ class ApplicationListView(generics.ListAPIView):
     permission_classes = [IsAuthenticated, IsAdminOrSuperUser]
 
 
+
 class ApplicationDetailView(generics.RetrieveAPIView):
     """
     Admin-only retrieve single application.
@@ -131,3 +132,13 @@ class ApplicationDetailView(generics.RetrieveAPIView):
     queryset = Application.objects.all()
     serializer_class = ApplicationSerializer
     permission_classes = [IsAuthenticated, IsAdminOrSuperUser]
+
+
+class ApplicationUpdateView(generics.UpdateAPIView):
+    """
+    Update application status (archive/unarchive) by ID
+    """
+
+    queryset = Application.objects.all()
+    serializer_class = ApplicationSerializer
+    permission_classes = [IsAuthenticated, IsAdminOrSuperUser]  

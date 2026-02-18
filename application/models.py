@@ -35,6 +35,11 @@ class Application(models.Model):
         PENSION = "PENSION", "Pension"
         HOUSING_VOUCHER = "HOUSING_VOUCHER", "Housing Voucher"
         OTHER = "OTHER", "Other"
+    
+    STATUS_CHOICES = [
+        ("archive","Archive"),
+        ("unarchive","Unarchive"),
+    ]
 
     # Basic meta
     application_type = models.CharField(
@@ -98,6 +103,8 @@ class Application(models.Model):
     referral_full_name = models.CharField(max_length=255, blank=True, null=True)
     referral_email = models.EmailField(blank=True, null=True)
     referral_phone = models.CharField(max_length=30, blank=True, null=True)
+
+    status =models.CharField(max_length=30,choices=STATUS_CHOICES,default="unarchive") 
 
     # Administrative
     created_at = models.DateTimeField(default=timezone.now)

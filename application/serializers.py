@@ -49,32 +49,68 @@ class ApplicationSerializer(serializers.ModelSerializer):
             "referral_full_name",
             "referral_email",
             "referral_phone",
+            "status",
             "created_at",
             "updated_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
 
     def validate(self, attrs):
-        # consent required
-        consent = attrs.get("consent", None)
-        if consent is False or consent is None:
-            raise serializers.ValidationError({"consent": "Applicant must agree to consent to submit."})
 
-        # If refer type, require referral fields
-        app_type = attrs.get("application_type", getattr(self.instance, "application_type", None))
+        # -----------------------------------
+        # 1️⃣ Consent validation (Only on CREATE)
+        # -----------------------------------
+        if self.instance is None:  # CREATE
+            consent = attrs.get("consent")
+            if not consent:
+                raise serializers.ValidationError({
+                    "consent": "Applicant must agree to consent to submit."
+                })
+
+        # -----------------------------------
+        # 2️⃣ Referral validation
+        # -----------------------------------
+        app_type = attrs.get(
+            "application_type",
+            getattr(self.instance, "application_type", None)
+        )
+
         if app_type == Application.ApplicationType.REFER:
-            missing = []
-            if not attrs.get("referral_full_name") and not getattr(self.instance, "referral_full_name", None):
-                missing.append("referral_full_name")
-            if not attrs.get("referral_email") and not getattr(self.instance, "referral_email", None):
-                missing.append("referral_email")
-            if not attrs.get("referral_phone") and not getattr(self.instance, "referral_phone", None):
-                missing.append("referral_phone")
-            if missing:
-                raise serializers.ValidationError({f: "This field is required for Refer Someone." for f in missing})
 
-        # Validate income_sources list elements are allowed choices (handled by ChoiceField child)
+            # For CREATE → must be in attrs
+            # For UPDATE → check attrs first, else instance value
+            referral_full_name = attrs.get(
+                "referral_full_name",
+                getattr(self.instance, "referral_full_name", None)
+            )
+
+            referral_email = attrs.get(
+                "referral_email",
+                getattr(self.instance, "referral_email", None)
+            )
+
+            referral_phone = attrs.get(
+                "referral_phone",
+                getattr(self.instance, "referral_phone", None)
+            )
+
+            missing = []
+
+            if not referral_full_name:
+                missing.append("referral_full_name")
+            if not referral_email:
+                missing.append("referral_email")
+            if not referral_phone:
+                missing.append("referral_phone")
+
+            if missing:
+                raise serializers.ValidationError({
+                    field: "This field is required for Refer Someone."
+                    for field in missing
+                })
+
         return attrs
+
 
     def create(self, validated_data):
         # income_sources will be a list (JSONField accepts list)
@@ -82,3 +118,5 @@ class ApplicationSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         return super().update(instance, validated_data)
+    
+
