@@ -16,7 +16,7 @@ class Application(models.Model):
     class LivingSituation(models.TextChoices):
         HOMELESS = "HOMELESS", "Homeless / Shelter / Transitional Housing"
         HOTEL = "HOTEL", "Hotel / Extended Stay"
-        WITH_FAMILY =  "Staying with Family or Friends"
+        WITH_FAMILY = "WITH_FAMILY", "Staying with Family or Friends"
         RENTING = "RENTING", "Renting / Own Home"
         OTHER = "OTHER", "Other"
 
