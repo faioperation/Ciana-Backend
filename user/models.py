@@ -2,7 +2,6 @@ import time
 
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models
-from django.core.validators import RegexValidator
 
 
 # Custom User Manager
@@ -59,16 +58,10 @@ class Users(AbstractBaseUser, PermissionsMixin):
         ADMIN = 'ADMIN', 'Admin'
         SUPERUSER = 'SUPERUSER', 'Superuser'
 
-    phone_regex = RegexValidator(
-        regex=r'^\+?1?\d{9,15}$',
-        message="Phone number must be entered in the format: '+999999999'. Up to 15 digits allowed."
-    )
-
     full_name = models.CharField(max_length=100)
     email = models.EmailField(max_length=254, unique=True)
     contact_number = models.CharField(
-        validators=[phone_regex],
-        max_length=17,
+        max_length=20,
         blank=True,
         null=True
     )
