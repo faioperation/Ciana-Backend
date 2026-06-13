@@ -44,7 +44,7 @@ class ApplicationCreateView(generics.CreateAPIView):
             f"Need housing when: {safe_display(app.need_housing_when)}",
             f"Living situation: {safe_display(app.living_situation)}",
             f"Income sources: {', '.join(app.income_sources) if app.income_sources else ''}",
-            f"Has case manager: {safe_display(app.has_case_manager)}",
+            f"Has case manager, social worker, or VA coordinator?: {'Yes' if app.has_case_manager is True else 'No' if app.has_case_manager is False else 'N/A'}"
             f"Additional info: {safe_display(app.additional_info)}",
             f"Submitted at: {safe_display(app.created_at)}",
         ]
@@ -75,9 +75,27 @@ class ApplicationCreateView(generics.CreateAPIView):
                 <pre style="margin: 0; white-space: pre-wrap; font-family: inherit;">{summary_text}</pre>
             </div>
 
-            <p style="margin-top: 16px; font-size: 14px; color: #555;">
-                Please log in to the admin panel to review and take action.
-            </p>
+            <div style="margin-top: 20px;">
+                <p style="font-size: 14px; color: #555;">
+                    Please log in to the admin panel to review and take action.
+                </p>
+
+                <a
+                    href="https://starlightpath.org/admin/login"
+                    style="
+                        display: inline-block;
+                        padding: 12px 24px;
+                        background-color: #2563eb;
+                        color: #ffffff;
+                        text-decoration: none;
+                        border-radius: 6px;
+                        font-weight: bold;
+                    "
+                >
+                    Login to Admin Panel
+                </a>
+             </div>
+
 
             <p style="font-size: 13px; color: #888;">
                 — Star Light Path System
