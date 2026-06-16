@@ -34,10 +34,14 @@ class ApplicationCreateView(generics.CreateAPIView):
         def safe_display(value):
             return str(value) if value not in [None, ""] else "N/A"
 
-        income_sources = (
-            ", ".join(app.income_sources)
-            if isinstance(app.income_sources, list)
-            else safe_display(app.income_sources)
+        # income_sources = (
+        #     ", ".join(app.income_sources)
+        #     if isinstance(app.income_sources, list)
+        #     else safe_display(app.income_sources)
+        # )
+        
+        income_sources = ", ".join(
+            [dict(Application.IncomeSource.choices).get(x, x) for x in (app.income_sources or [])]
         )
 
         case_manager_status = (
@@ -50,11 +54,11 @@ class ApplicationCreateView(generics.CreateAPIView):
 
         summary_lines = [
             f"Applicant: {safe_display(app.full_name)}",
-            f"Application type: {safe_display(app.application_type)}",
+            f"Application type: {safe_display(app.get_application_type_display())}",
             f"Email: {safe_display(app.email)}",
             f"Phone: {safe_display(app.phone)}",
-            f"Need housing when: {safe_display(app.need_housing_when)}",
-            f"Living situation: {safe_display(app.living_situation)}",
+            f"Need housing when: {safe_display(app.get_need_housing_when_display())}",
+            f"Living situation: {safe_display(app.get_living_situation_display())}",
             f"Income sources: {income_sources}",
             f"Has case manager, social worker, or VA coordinator?: {case_manager_status}",
             f"Additional info: {safe_display(app.additional_info)}",
@@ -96,11 +100,10 @@ class ApplicationCreateView(generics.CreateAPIView):
                 border-radius: 8px;
                 border: 1px solid #e5e5e5;
             ">
-                <pre style="
-                    margin: 0;
-                    white-space: pre-wrap;
-                    font-family: Arial, Helvetica, sans-serif;
-                ">{summary_text}</pre>
+            
+                <div style="white-space: pre-line; font-family: Arial, Helvetica, sans-serif;">
+                    {summary_text}
+                </div>
             </div>
 
             <div style="margin-top: 24px;">
@@ -209,3 +212,11 @@ class ApplicationUpdateView(generics.UpdateAPIView):
     queryset = Application.objects.all()
     serializer_class = ApplicationSerializer
     permission_classes = [IsAuthenticated, IsAdminOrSuperUser]  
+    
+
+# 104 er replace code 
+                # <pre style="
+                #     margin: 0;
+                #     white-space: pre-wrap;
+                #     font-family: Arial, Helvetica, sans-serif;
+                # ">{summary_text}</pre>
