@@ -9,7 +9,15 @@ from .models import Program, ProgramSection
 class ProgramSectionReadSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProgramSection
-        fields = ("id", "program", "title", "description", "image", "created_at", "updated_at")
+        fields = (
+            "id",
+            "program",
+            "title",
+            "description",
+            "image",
+            "created_at",
+            "updated_at",
+        )
 
 
 class ProgramReadSerializer(serializers.ModelSerializer):
@@ -54,7 +62,13 @@ class ProgramWriteNestedSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Program
-        fields = ("id", "name", "short_description", "feature_image", "program_sections",)
+        fields = (
+            "id",
+            "name",
+            "short_description",
+            "feature_image",
+            "program_sections",
+        )
         read_only_fields = ("id",)
 
     @transaction.atomic
@@ -68,7 +82,9 @@ class ProgramWriteNestedSerializer(serializers.ModelSerializer):
         # print("PROGRAM SECTIONS RAW:", program_sections_raw)
 
         try:
-            program_sections_data = json.loads(program_sections_raw) if program_sections_raw else []
+            program_sections_data = (
+                json.loads(program_sections_raw) if program_sections_raw else []
+            )
         except json.JSONDecodeError:
             raise serializers.ValidationError({"program_sections": "Invalid JSON."})
 
@@ -92,7 +108,9 @@ class ProgramWriteNestedSerializer(serializers.ModelSerializer):
             if chosen_key:
                 if chosen_key not in files:
                     raise serializers.ValidationError(
-                        {"program_sections": f"Missing file for key '{chosen_key}' for section index {idx}."}
+                        {
+                            "program_sections": f"Missing file for key '{chosen_key}' for section index {idx}."
+                        }
                     )
                 section.image = files[chosen_key]
                 section.save()
@@ -101,41 +119,131 @@ class ProgramWriteNestedSerializer(serializers.ModelSerializer):
 
     @transaction.atomic
     def update(self, instance, validated_data):
-        # Basic update for program fields; nested section updates can be implemented as needed.
-        # For now, this mirrors the flat ProgramWriteSerializer behavior.
+        request = self.context.get("request")
+        files = getattr(request, "FILES", {})
+
+        # Update Program fields
         program_sections_raw = validated_data.pop("program_sections", None)
+
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
+
         instance.save()
 
-        if program_sections_raw:
-            # If user provided program_sections on update, treat it as "add new sections".
+        # Update/Create Sections
+        if program_sections_raw is not None:
             try:
-                program_sections_data = json.loads(program_sections_raw) if program_sections_raw else []
+                program_sections_data = (
+                    json.loads(program_sections_raw) if program_sections_raw else []
+                )
             except json.JSONDecodeError:
                 raise serializers.ValidationError({"program_sections": "Invalid JSON."})
 
-            request = self.context.get("request")
-            files = getattr(request, "FILES", {})
-
             for idx, section_data in enumerate(program_sections_data):
+
+                section_id = section_data.get("id")
+
+                # -----------------------
+                # UPDATE Existing Section
+                # -----------------------
+                if section_id:
+                    try:
+                        section = ProgramSection.objects.get(
+                            id=section_id,
+                            program=instance,
+                        )
+                    except ProgramSection.DoesNotExist:
+                        raise serializers.ValidationError(
+                            {
+                                "program_sections": f"Section with id {section_id} not found."
+                            }
+                        )
+
+                    section.title = section_data.get(
+                        "title",
+                        section.title,
+                    )
+
+                    section.description = section_data.get(
+                        "description",
+                        section.description,
+                    )
+
+                # -----------------------
+                # CREATE New Section
+                # -----------------------
+                else:
+                    section = ProgramSection.objects.create(
+                        program=instance,
+                        title=section_data.get("title", ""),
+                        description=section_data.get("description", ""),
+                    )
+
+                # -----------------------
+                # Image Update
+                # -----------------------
                 image_key = section_data.get("image_key")
                 image_keys = section_data.get("image_keys", [])
 
-                section = ProgramSection.objects.create(
-                    program=instance,
-                    title=section_data.get("title", ""),
-                    description=section_data.get("description", ""),
-                )
-
                 chosen_key = image_key or (image_keys[0] if image_keys else None)
+
                 if chosen_key:
                     if chosen_key not in files:
                         raise serializers.ValidationError(
-                            {"program_sections": f"Missing file for key '{chosen_key}' for section index {idx}."}
+                            {
+                                "program_sections": (
+                                    f"Missing file for key '{chosen_key}' "
+                                    f"for section index {idx}."
+                                )
+                            }
                         )
+
                     section.image = files[chosen_key]
-                    section.save()
+
+                section.save()
 
         return instance
-    
+
+    # @transaction.atomic
+    # def update(self, instance, validated_data):
+    #     # Basic update for program fields; nested section updates can be implemented as needed.
+    #     # For now, this mirrors the flat ProgramWriteSerializer behavior.
+    #     program_sections_raw = validated_data.pop("program_sections", None)
+    #     for attr, value in validated_data.items():
+    #         setattr(instance, attr, value)
+    #     instance.save()
+
+    #     if program_sections_raw:
+    #         # If user provided program_sections on update, treat it as "add new sections".
+    #         try:
+    #             program_sections_data = (
+    #                 json.loads(program_sections_raw) if program_sections_raw else []
+    #             )
+    #         except json.JSONDecodeError:
+    #             raise serializers.ValidationError({"program_sections": "Invalid JSON."})
+
+    #         request = self.context.get("request")
+    #         files = getattr(request, "FILES", {})
+
+    #         for idx, section_data in enumerate(program_sections_data):
+    #             image_key = section_data.get("image_key")
+    #             image_keys = section_data.get("image_keys", [])
+
+    #             section = ProgramSection.objects.create(
+    #                 program=instance,
+    #                 title=section_data.get("title", ""),
+    #                 description=section_data.get("description", ""),
+    #             )
+
+    #             chosen_key = image_key or (image_keys[0] if image_keys else None)
+    #             if chosen_key:
+    #                 if chosen_key not in files:
+    #                     raise serializers.ValidationError(
+    #                         {
+    #                             "program_sections": f"Missing file for key '{chosen_key}' for section index {idx}."
+    #                         }
+    #                     )
+    #                 section.image = files[chosen_key]
+    #                 section.save()
+
+    #     return instance
