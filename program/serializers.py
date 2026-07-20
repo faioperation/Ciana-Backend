@@ -122,7 +122,9 @@ class ProgramWriteNestedSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         files = getattr(request, "FILES", {})
 
+        # -----------------------
         # Update Program fields
+        # -----------------------
         program_sections_raw = validated_data.pop("program_sections", None)
 
         for attr, value in validated_data.items():
@@ -130,7 +132,9 @@ class ProgramWriteNestedSerializer(serializers.ModelSerializer):
 
         instance.save()
 
-        # Update/Create Sections
+        # -----------------------
+        # Sync Program Sections
+        # -----------------------
         if program_sections_raw is not None:
             try:
                 program_sections_data = (
@@ -139,12 +143,15 @@ class ProgramWriteNestedSerializer(serializers.ModelSerializer):
             except json.JSONDecodeError:
                 raise serializers.ValidationError({"program_sections": "Invalid JSON."})
 
+            # Keep track of sections that should exist after update
+            section_ids_to_keep = []
+
             for idx, section_data in enumerate(program_sections_data):
 
                 section_id = section_data.get("id")
 
                 # -----------------------
-                # UPDATE Existing Section
+                # Existing Section -> UPDATE
                 # -----------------------
                 if section_id:
                     try:
@@ -155,7 +162,9 @@ class ProgramWriteNestedSerializer(serializers.ModelSerializer):
                     except ProgramSection.DoesNotExist:
                         raise serializers.ValidationError(
                             {
-                                "program_sections": f"Section with id {section_id} not found."
+                                "program_sections": (
+                                    f"Section with id {section_id} not found."
+                                )
                             }
                         )
 
@@ -170,17 +179,17 @@ class ProgramWriteNestedSerializer(serializers.ModelSerializer):
                     )
 
                 # -----------------------
-                # CREATE New Section
+                # New Section -> CREATE
                 # -----------------------
                 else:
-                    section = ProgramSection.objects.create(
+                    section = ProgramSection(
                         program=instance,
                         title=section_data.get("title", ""),
                         description=section_data.get("description", ""),
                     )
 
                 # -----------------------
-                # Image Update
+                # Image handling
                 # -----------------------
                 image_key = section_data.get("image_key")
                 image_keys = section_data.get("image_keys", [])
@@ -201,6 +210,15 @@ class ProgramWriteNestedSerializer(serializers.ModelSerializer):
                     section.image = files[chosen_key]
 
                 section.save()
+
+                section_ids_to_keep.append(section.id)
+
+            # -----------------------
+            # Delete removed sections
+            # -----------------------
+            ProgramSection.objects.filter(program=instance).exclude(
+                id__in=section_ids_to_keep
+            ).delete()
 
         return instance
 
