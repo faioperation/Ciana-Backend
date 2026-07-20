@@ -150,24 +150,18 @@ class ProgramWriteNestedSerializer(serializers.ModelSerializer):
 
                 section_id = section_data.get("id")
 
-                # -----------------------
-                # Existing Section -> UPDATE
-                # -----------------------
+                # Try to find existing section
+                section = None
                 if section_id:
-                    try:
-                        section = ProgramSection.objects.get(
-                            id=section_id,
-                            program=instance,
-                        )
-                    except ProgramSection.DoesNotExist:
-                        raise serializers.ValidationError(
-                            {
-                                "program_sections": (
-                                    f"Section with id {section_id} not found."
-                                )
-                            }
-                        )
+                    section = ProgramSection.objects.filter(
+                        id=section_id,
+                        program=instance,
+                    ).first()
 
+                # -----------------------
+                # UPDATE Existing Section
+                # -----------------------
+                if section:
                     section.title = section_data.get(
                         "title",
                         section.title,
@@ -179,7 +173,7 @@ class ProgramWriteNestedSerializer(serializers.ModelSerializer):
                     )
 
                 # -----------------------
-                # New Section -> CREATE
+                # CREATE New Section
                 # -----------------------
                 else:
                     section = ProgramSection(
@@ -189,7 +183,7 @@ class ProgramWriteNestedSerializer(serializers.ModelSerializer):
                     )
 
                 # -----------------------
-                # Image handling
+                # Image Handling
                 # -----------------------
                 image_key = section_data.get("image_key")
                 image_keys = section_data.get("image_keys", [])
